@@ -37,13 +37,8 @@ const MAIN = 1 << 0;
 const SOURCE = 1 << 2;
 const NODE_CONDITION = 1 << 3;
 const SOURCE_CONDITION = 1 << 17;
-// In production builds, only use 'main' field. Otherwise use both 'main' and 'source'.
-const ENTRIES =
-  process.env.PARCEL_BUILD_ENV === 'production' ? MAIN : MAIN | SOURCE;
-const CONDITIONS =
-  process.env.PARCEL_BUILD_ENV === 'production'
-    ? NODE_CONDITION
-    : NODE_CONDITION | SOURCE_CONDITION;
+const ENTRIES = MAIN | SOURCE;
+const CONDITIONS = NODE_CONDITION | SOURCE_CONDITION;
 
 const NODE_MODULES = `${path.sep}node_modules${path.sep}`;
 

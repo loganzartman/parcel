@@ -78,51 +78,16 @@ function register(inputOpts?: InitialParcelOptions): IDisposable {
 
   let hookFunction = (...args) => syncPromise(fileProcessor(...args));
 
-  // Skip parcel's own packages and node_modules to avoid recursion
+  // In the Parcel monorepo, packages are workspace-linked (not in node_modules).
+  // Skip Parcel's compiled packages to avoid infinite recursion when
+  // parcel.unstable_transform() loads its own dependencies.
   const matcher = (filename: string) => {
-    // Skip node_modules
-    if (filename.includes('/node_modules/')) {
-      return false;
-    }
     // Skip parcel compiled packages (lib directories in packages/)
-    // This handles workspace links without skipping example/test files
     if (/\/packages\/[^/]+\/[^/]+\/lib\//.test(filename)) {
       return false;
     }
     return true;
   };
-
-  function resolveFile(currFile, targetFile) {
-    try {
-      isProcessing = true;
-
-      let result = syncPromise(
-        parcel.unstable_resolve({
-          specifier: targetFile,
-          resolveFrom: currFile,
-          env,
-        }),
-      );
-
-      if (!result) {
-        throw new Error(`Cannot resolve '${targetFile}' from '${currFile}'`);
-      }
-
-      let resolved = result.filePath;
-      let targetFileExtension = path.extname(resolved);
-      if (!hooks[targetFileExtension]) {
-        hooks[targetFileExtension] = addHook(hookFunction, {
-          exts: [targetFileExtension],
-          ignoreNodeModules: true,
-          matcher,
-        });
-      }
-
-      return resolved;
-    } finally {
-      isProcessing = false;
-    }
-  }
 
   // Register hooks for common file types that need transformation
   const defaultExts = ['.js', '.jsx', '.ts', '.tsx', '.mjs', '.cjs'];
@@ -136,18 +101,10 @@ function register(inputOpts?: InitialParcelOptions): IDisposable {
 
   let disposed;
 
-  // TODO: Re-enable resolver hook - currently disabled for debugging
-  // Patching Module._resolveFilename takes care of patching the underlying
-  // resolver in both `require` and `require.resolve`:
-  // https://github.com/nodejs/node-v0.x-archive/issues/1125#issuecomment-10748203
-  // $FlowFixMe[prop-missing]
-  // const originalResolveFilename = Module._resolveFilename;
-  // // $FlowFixMe[prop-missing]
-  // Module._resolveFilename = function parcelResolveFilename(to, from, ...rest) {
-  //   return isProcessing || disposed
-  //     ? originalResolveFilename(to, from, ...rest)
-  //     : resolveFile(from?.filename, to);
-  // };
+  // NOTE: The resolver hook (for ~ aliases) is disabled because Parcel's
+  // unstable_transform rewrites imports to bundle references, which breaks
+  // the resolver functionality. The resolver would need a custom transformer
+  // that strips types without rewriting imports.
 
   let disposable = (lastDisposable = {
     dispose() {
