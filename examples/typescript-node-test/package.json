@@ -1,0 +1,13 @@
+{
+  "name": "typescript-node-test",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Example: Running TypeScript tests with Node's test runner using @parcel/register",
+  "type": "commonjs",
+  "scripts": {
+    "test": "node --test -r @parcel/register src/*.test.ts"
+  },
+  "devDependencies": {
+    "@parcel/register": "workspace:*"
+  }
+}

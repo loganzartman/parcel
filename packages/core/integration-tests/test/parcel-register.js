@@ -4,7 +4,7 @@ import {execSync} from 'child_process';
 import assert from 'assert';
 import path from 'path';
 
-describe.skip('@parcel/register', () => {
+describe('@parcel/register', () => {
   it('can be required at an entry script and transform following requires', () => {
     assert.equal(
       execSync(
@@ -14,12 +14,17 @@ describe.skip('@parcel/register', () => {
           'parcel-register',
           'entry.js',
         )}`,
-      ),
+        {timeout: 30000},
+      )
+        .toString()
+        .trim(),
       '123',
     );
   });
 
-  it('can transform with --r and --require', () => {
+  // Skip this test because when using -r, there's no way to call dispose()
+  // and the process will hang waiting for Parcel's workers to terminate
+  it.skip('can transform with --r and --require', () => {
     assert.equal(
       execSync(
         `node -r @parcel/register ${path.join(
@@ -28,12 +33,16 @@ describe.skip('@parcel/register', () => {
           'parcel-register',
           'index.js',
         )}`,
-      ),
+        {timeout: 30000},
+      )
+        .toString()
+        .trim(),
       '123',
     );
   });
 
-  it("enables Parcel's resolver in node", () => {
+  // Skip resolver tests - resolver hook is currently disabled
+  it.skip("enables Parcel's resolver in node", () => {
     let [foo, resolved] = execSync(
       `node -r @parcel/register ${path.join(
         __dirname,
@@ -52,7 +61,8 @@ describe.skip('@parcel/register', () => {
     );
   });
 
-  it('can be disposed of, which reverts resolving', () => {
+  // Skip resolver tests - resolver hook is currently disabled
+  it.skip('can be disposed of, which reverts resolving', () => {
     try {
       execSync(
         `node ${path.join(
@@ -93,13 +103,18 @@ describe.skip('@parcel/register', () => {
         {
           cwd: path.join(__dirname, 'integration', 'parcel-register'),
           stdio: 'pipe',
+          timeout: 30000,
         },
       )
         .toString()
         .split('\n');
     } catch (e) {
       assert.equal(e.stdout.toString().trim(), '123');
-      assert(e.stderr.includes('SyntaxError: Unexpected identifier'));
+      // The error message varies between Node versions
+      assert(
+        e.stderr.includes('SyntaxError: Unexpected identifier') ||
+          e.stderr.includes("SyntaxError: Unexpected token '{'"),
+      );
       return;
     }
 

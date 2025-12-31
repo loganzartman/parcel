@@ -1,6 +1,9 @@
 // @flow strict-local
 
-import deasync from 'deasync';
+// $FlowFixMe[untyped-import]
+// Force eager loading to avoid issues with our patched Module._resolveFilename
+// eslint-disable-next-line no-unused-vars
+const _deasyncModule = require('deasync');
 
 /**
  * Synchronously waits for a promise to return by
@@ -21,7 +24,7 @@ export default function syncPromise<T>(promise: Promise<T>): T {
     },
   );
 
-  deasync.loopWhile(() => !isDone);
+  _deasyncModule.loopWhile(() => !isDone);
 
   if (err) {
     throw err;

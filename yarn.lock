@@ -3349,7 +3349,7 @@ __metadata:
     "@parcel/utils": "npm:2.16.3"
     commander: "npm:^12.1.0"
   bin:
-    parcel-bundle-stats: src/bin.js
+    parcel-bundle-stats: lib/bin.js
   languageName: unknown
   linkType: soft
 
@@ -3562,7 +3562,7 @@ __metadata:
     tempy: "npm:^0.2.1"
     v8-compile-cache: "npm:^2.4.0"
   bin:
-    parcel-create-react-app: src/bin.js
+    parcel-create-react-app: lib/bin.js
   languageName: unknown
   linkType: soft
 
@@ -4233,7 +4233,7 @@ __metadata:
     table: "npm:^6.9.0"
     v8-compile-cache: "npm:^2.4.0"
   bin:
-    parcel-query: src/bin.js
+    parcel-query: lib/bin.js
   languageName: unknown
   linkType: soft
 
@@ -4267,6 +4267,7 @@ __metadata:
     "@parcel/core": "npm:2.16.3"
     "@parcel/fs": "npm:2.16.3"
     "@parcel/package-manager": "npm:2.16.3"
+    deasync: "npm:^0.1.30"
     pirates: "npm:^4.0.7"
   languageName: unknown
   linkType: soft
@@ -9051,6 +9052,16 @@ __metadata:
   version: 3.0.3
   resolution: "dateformat@npm:3.0.3"
   checksum: 10c0/2effb8bef52ff912f87a05e4adbeacff46353e91313ad1ea9ed31412db26849f5a0fcc7e3ce36dbfb84fc6c881a986d5694f84838ad0da7000d5150693e78678
+  languageName: node
+  linkType: hard
+
+"deasync@npm:^0.1.30":
+  version: 0.1.31
+  resolution: "deasync@npm:0.1.31"
+  dependencies:
+    bindings: "npm:^1.5.0"
+    node-addon-api: "npm:^1.7.1"
+  checksum: 10c0/e002010dc55048a611d35994f45cc36097aeddd147a650cfc1d96e8b251619971ce8b2692939f2da718d2ca26740337a88c7ee5493f43eb1fc773a52cc055794
   languageName: node
   linkType: hard
 
@@ -15815,6 +15826,15 @@ __metadata:
   languageName: node
   linkType: hard
 
+"node-addon-api@npm:^1.7.1":
+  version: 1.7.2
+  resolution: "node-addon-api@npm:1.7.2"
+  dependencies:
+    node-gyp: "npm:latest"
+  checksum: 10c0/bcf526f2ce788182730d3c3df5206585873d1e837a6e1378ff84abccf2f19cf3f93a8274f9c1245af0de63a0dbd1bb95ca2f767ecf5c678d6930326aaf396c4e
+  languageName: node
+  linkType: hard
+
 "node-addon-api@npm:^6.1.0":
   version: 6.1.0
   resolution: "node-addon-api@npm:6.1.0"
@@ -17019,7 +17039,7 @@ __metadata:
     commander: "npm:^12.1.0"
     get-port: "npm:^4.2.0"
   bin:
-    parcel: src/bin.js
+    parcel: lib/bin.js
   languageName: unknown
   linkType: soft
 
