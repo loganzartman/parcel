@@ -2,30 +2,24 @@
 
 import type {IDisposable, InitialParcelOptions} from '@parcel/types';
 
-import {NodePackageManager} from '@parcel/package-manager';
-import {NodeFS} from '@parcel/fs';
-// flowlint-next-line untyped-import:off
-import defaultConfigContents from '@parcel/config-default';
 // $FlowFixMe Flow can't resolve this
 import Module from 'module';
 import path from 'path';
 import {addHook} from 'pirates';
-import Parcel, {INTERNAL_RESOLVE, INTERNAL_TRANSFORM} from '@parcel/core';
+import Parcel, {createWorkerFarm} from '@parcel/core';
 
-import syncPromise from './syncPromise';
+// Force eager loading of syncPromise and its dependencies (deasync)
+// before we patch Module._resolveFilename
+// $FlowFixMe[untyped-import]
+const syncPromise = require('./syncPromise').default;
 
 let hooks = {};
 let lastDisposable;
-let packageManager = new NodePackageManager(new NodeFS(), '/');
-let defaultConfig = {
-  ...defaultConfigContents,
-  filePath: packageManager.resolveSync('@parcel/config-default', __filename)
-    .resolved,
-};
+let parcelInstance;
 
 function register(inputOpts?: InitialParcelOptions): IDisposable {
   let opts: InitialParcelOptions = {
-    ...defaultConfig,
+    defaultConfig: '@parcel/config-default',
     ...(inputOpts || {}),
   };
 
@@ -38,6 +32,7 @@ function register(inputOpts?: InitialParcelOptions): IDisposable {
     logLevel: 'error',
     ...opts,
   });
+  parcelInstance = parcel;
 
   let env = {
     context: 'node',
@@ -45,8 +40,6 @@ function register(inputOpts?: InitialParcelOptions): IDisposable {
       node: process.versions.node,
     },
   };
-
-  syncPromise(parcel._init());
 
   let isProcessing = false;
 
@@ -58,15 +51,14 @@ function register(inputOpts?: InitialParcelOptions): IDisposable {
 
     try {
       isProcessing = true;
-      // $FlowFixMe
-      let result = await parcel[INTERNAL_TRANSFORM]({
+      let assets = await parcel.unstable_transform({
         filePath,
         env,
       });
 
-      if (result.assets && result.assets.length >= 1) {
+      if (assets && assets.length >= 1) {
         let output = '';
-        let asset = result.assets.find(a => a.type === 'js');
+        let asset = assets.find(a => a.type === 'js');
         if (asset) {
           output = await asset.getCode();
         }
@@ -86,51 +78,33 @@ function register(inputOpts?: InitialParcelOptions): IDisposable {
 
   let hookFunction = (...args) => syncPromise(fileProcessor(...args));
 
-  function resolveFile(currFile, targetFile) {
-    try {
-      isProcessing = true;
-
-      let resolved = syncPromise(
-        // $FlowFixMe
-        parcel[INTERNAL_RESOLVE]({
-          specifier: targetFile,
-          sourcePath: currFile,
-          env,
-        }),
-      );
-
-      let targetFileExtension = path.extname(resolved);
-      if (!hooks[targetFileExtension]) {
-        hooks[targetFileExtension] = addHook(hookFunction, {
-          exts: [targetFileExtension],
-          ignoreNodeModules: false,
-        });
-      }
-
-      return resolved;
-    } finally {
-      isProcessing = false;
+  // In the Parcel monorepo, packages are workspace-linked (not in node_modules).
+  // Skip Parcel's compiled packages to avoid infinite recursion when
+  // parcel.unstable_transform() loads its own dependencies.
+  const matcher = (filename: string) => {
+    // Skip parcel compiled packages (lib directories in packages/)
+    if (/\/packages\/[^/]+\/[^/]+\/lib\//.test(filename)) {
+      return false;
     }
-  }
+    return true;
+  };
 
-  hooks.js = addHook(hookFunction, {
-    exts: ['.js'],
-    ignoreNodeModules: false,
-  });
+  // Register hooks for common file types that need transformation
+  const defaultExts = ['.js', '.jsx', '.ts', '.tsx', '.mjs', '.cjs'];
+  for (let ext of defaultExts) {
+    hooks[ext] = addHook(hookFunction, {
+      exts: [ext],
+      ignoreNodeModules: true,
+      matcher,
+    });
+  }
 
   let disposed;
 
-  // Patching Module._resolveFilename takes care of patching the underlying
-  // resolver in both `require` and `require.resolve`:
-  // https://github.com/nodejs/node-v0.x-archive/issues/1125#issuecomment-10748203
-  // $FlowFixMe[prop-missing]
-  const originalResolveFilename = Module._resolveFilename;
-  // $FlowFixMe[prop-missing]
-  Module._resolveFilename = function parcelResolveFilename(to, from, ...rest) {
-    return isProcessing || disposed
-      ? originalResolveFilename(to, from, ...rest)
-      : resolveFile(from?.filename, to);
-  };
+  // NOTE: The resolver hook (for ~ aliases) is disabled because Parcel's
+  // unstable_transform rewrites imports to bundle references, which breaks
+  // the resolver functionality. The resolver would need a custom transformer
+  // that strips types without rewriting imports.
 
   let disposable = (lastDisposable = {
     dispose() {
@@ -142,6 +116,17 @@ function register(inputOpts?: InitialParcelOptions): IDisposable {
         hooks[extension]();
       }
 
+      // Clean up Parcel's worker farm to allow process to exit
+      if (parcelInstance) {
+        try {
+          // $FlowFixMe[incompatible-use] - _end is a private method but we need it for cleanup
+          syncPromise(parcelInstance._end());
+        } catch (e) {
+          // Ignore errors during cleanup
+        }
+        parcelInstance = null;
+      }
+
       disposed = true;
     },
   });
@@ -151,6 +136,11 @@ function register(inputOpts?: InitialParcelOptions): IDisposable {
 
 let disposable: IDisposable = register();
 register.dispose = (): mixed => disposable.dispose();
+
+// Auto-dispose on process exit to prevent hanging
+process.on('beforeExit', () => {
+  register.dispose();
+});
 
 // Support both commonjs and ES6 modules
 module.exports = register;
